@@ -2,9 +2,9 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { fetchRelatoriosByOs } from '@/lib/api-client';
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertTriangle, FileText, CalendarIcon as CalendarLucideIcon, CheckSquare, Edit3, List, Hash, Image as ImageIcon, X } from 'lucide-react';
@@ -76,23 +76,19 @@ export default function LinkedReportModal({ isOpen, onClose, osId, targetFormTyp
         setFormDefinition(definition);
 
         try {
-          const reportsSubCollectionRef = collection(db, "ordens_servico", osId, "relatorios");
-          // Query for reports of the targetFormType, order by submission date descending to get the latest.
-          // If mainReportSubmittedAt is available, you could potentially add a where clause
-          // to find reports submitted around the same time or after the main report, if relevant.
-          const q = query(
-            reportsSubCollectionRef,
-            where("formType", "==", targetFormType),
-            orderBy("submittedAt", "desc")
-            // limit(1) // Uncomment if you only ever want the single most recent one
-          );
-          const querySnapshot = await getDocs(q);
+          const allReports = await fetchRelatoriosByOs(osId);
+          const filteredReports = allReports.filter((r) => r.formType === targetFormType);
 
-          if (!querySnapshot.empty) {
+          if (filteredReports.length > 0) {
             // For simplicity, taking the first (most recent) one.
-            // If multiple could be relevant, you might need a way to select which one.
-            const docSnap = querySnapshot.docs[0]; 
-            setLinkedReport({ id: docSnap.id, ...docSnap.data() } as LinkedReportData);
+            // Sort by descending date just to be sure
+            filteredReports.sort((a, b) => {
+              const aTime = a.submittedAt instanceof Timestamp ? a.submittedAt.toDate().getTime() : new Date(a.submittedAt as any).getTime();
+              const bTime = b.submittedAt instanceof Timestamp ? b.submittedAt.toDate().getTime() : new Date(b.submittedAt as any).getTime();
+              return bTime - aTime;
+            });
+            
+            setLinkedReport(filteredReports[0] as unknown as LinkedReportData);
           } else {
             setError(`Nenhum relatório do tipo "${definition.name}" encontrado para a OS "${osId}".`);
           }
