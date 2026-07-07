@@ -27,9 +27,12 @@ interface NavItem {
   label: string;
 }
 
+import { useTranslation } from "@/context/language-context";
+
 export function AppSidebar({ isAdminArea = false }: AppSidebarProps) {
   const pathname = usePathname();
   const { setOpenMobile, isMobile, openMobile } = useSidebar();
+  const { t } = useTranslation();
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -40,21 +43,21 @@ export function AppSidebar({ isAdminArea = false }: AppSidebarProps) {
   const { isAdmin } = useAuth();
 
   const navItems: NavItem[] = [
-    { href: "/dashboard", icon: <Home className="w-5 h-5" />, label: "Painel" },
+    { href: "/dashboard", icon: <Home className="w-5 h-5" />, label: t("menu_dashboard") },
     {
       href: "/dashboard/search",
       icon: <Search className="w-5 h-5" />,
-      label: "Consultar",
+      label: t("menu_query"),
     },
     {
       href: "/dashboard/monitoramento",
       icon: <PieChart className="w-5 h-5" />,
-      label: "Monitoramento",
+      label: t("menu_monitoring"),
     },
     {
       href: "/dashboard/documentos",
       icon: <FileText className="w-5 h-5" />,
-      label: "Documentos",
+      label: t("menu_documents"),
     },
   ];
 

@@ -1,20 +1,25 @@
-    [build]
+[build]
   # Especificar que o build é na pasta frontend
   base = "frontend"
   command = "npm run build"
-  publish = ".next/standalone"
+  publish = ".next"
 
 [build.environment]
-  # Variáveis de ambiente necessárias para o build
-  NEXT_PUBLIC_API_URL = "https://painel-metalgalvano.onrender.com"
-  NEXT_PUBLIC_USE_BACKEND = "true"
+  # Variáveis de ambiente para modo demo (sem backend/firebase)
+  NEXT_PUBLIC_DEMO_MODE = "true"
+  NEXT_PUBLIC_USE_BACKEND = "false"
+  NEXT_PUBLIC_API_URL = ""
+  # Firebase env vars dummy (para evitar erros de build)
+  NEXT_PUBLIC_FIREBASE_API_KEY = "demo-key"
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "demo.firebaseapp.com"
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID = "demo-project"
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "demo.appspot.com"
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "000000000000"
+  NEXT_PUBLIC_FIREBASE_APP_ID = "1:000000000000:web:demo"
 
-# Configuração do Next.js para Netlify
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/ssr"
-  status = 200
-  conditions = { "NOT" = [{ "path" = "/_next/*" }, { "path" = "/public/*" }] }
+# Plugin para Next.js no Netlify
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Headers para segurança e cache
 [[headers]]

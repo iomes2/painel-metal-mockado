@@ -90,11 +90,14 @@ interface Gerente {
 type SortableColumn = "formName" | "submittedAt";
 type SortableOsColumn = "os" | "lastReportAt";
 
+import { useTranslation } from "@/context/language-context";
+
 export default function SearchPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t, language } = useTranslation();
 
   // Estados para busca por OS
   const [osInput, setOsInput] = useState("");
@@ -202,8 +205,8 @@ export default function SearchPage() {
     async (osToSearch: string, isInitialLoadSearch = false) => {
       if (!user) {
         toast({
-          title: "Autenticação Necessária",
-          description: "Você precisa estar logado para pesquisar.",
+          title: language === "pt" ? "Autenticação Necessária" : "Authentication Required",
+          description: t("search_error_auth"),
           variant: "destructive",
         });
         return;
@@ -212,9 +215,8 @@ export default function SearchPage() {
       if (!trimmedOsToSearch) {
         if (!isInitialLoadSearch) {
           toast({
-            title: "Campo Obrigatório",
-            description:
-              "Por favor, insira uma Ordem de Serviço para pesquisar.",
+            title: language === "pt" ? "Campo Obrigatório" : "Required Field",
+            description: t("search_error_required"),
             variant: "destructive",
           });
         }
@@ -274,13 +276,16 @@ export default function SearchPage() {
   const performSearchByGerente = useCallback(
     async (gerenteIdToSearch: string) => {
       if (!user) {
-        toast({ title: "Autenticação Necessária", variant: "destructive" });
+        toast({
+          title: language === "pt" ? "Autenticação Necessária" : "Authentication Required",
+          variant: "destructive",
+        });
         return;
       }
       if (!gerenteIdToSearch) {
         toast({
-          title: "Seleção Obrigatória",
-          description: "Por favor, selecione um gerente.",
+          title: language === "pt" ? "Seleção Obrigatória" : "Selection Required",
+          description: t("search_error_select_mgr"),
           variant: "destructive",
         });
         setOsResultsByGerente([]);
@@ -478,7 +483,7 @@ export default function SearchPage() {
           <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
             <span>Dashboard</span>
             <span>›</span>
-            <span className="text-cyan-400">Consultar</span>
+            <span className="text-cyan-400">{t("menu_query")}</span>
           </div>
 
           {/* Title */}
@@ -488,10 +493,10 @@ export default function SearchPage() {
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-white">
-                Consultar Relatórios
+                {t("search_title")}
               </h1>
               <p className="text-sm text-slate-400 hidden sm:block">
-                Busque por OS ou por gerente responsável
+                {t("search_subtitle")}
               </p>
             </div>
           </div>
@@ -510,9 +515,9 @@ export default function SearchPage() {
               type="tel"
               value={osInput}
               onChange={(e) => setOsInput(e.target.value)}
-              placeholder="Buscar por OS (ex: 123)"
+              placeholder={t("search_os_placeholder")}
               className="flex-grow text-base md:text-sm h-11 rounded-xl border-slate-200 dark:border-slate-700"
-              aria-label="Ordem de Serviço"
+              aria-label={t("search_table_os")}
             />
             <Button
               type="submit"
@@ -524,14 +529,14 @@ export default function SearchPage() {
               ) : (
                 <SearchIcon className="mr-2 h-4 w-4" />
               )}
-              Buscar OS
+              {t("search_os_btn")}
             </Button>
           </form>
 
           {/* Divider */}
           <div className="hidden md:flex items-center gap-4">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
-            <span className="text-xs text-slate-400 font-medium">ou</span>
+            <span className="text-xs text-slate-400 font-medium">{language === "pt" ? "ou" : "or"}</span>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
           </div>
 
@@ -551,10 +556,10 @@ export default function SearchPage() {
                   <SelectValue
                     placeholder={
                       isLoadingGerentes
-                        ? "Carregando gerentes..."
+                        ? t("search_manager_loading")
                         : firestoreGerentes.length === 0
-                        ? "Nenhum gerente encontrado"
-                        : "Selecione um gerente..."
+                        ? t("search_manager_empty")
+                        : t("search_manager_placeholder")
                     }
                   />
                 </div>
@@ -572,7 +577,7 @@ export default function SearchPage() {
                   ))
                 ) : !isLoadingGerentes && firestoreGerentes.length === 0 ? (
                   <div className="p-2 text-sm text-muted-foreground">
-                    Nenhum gerente cadastrado.
+                    {t("search_manager_empty")}
                   </div>
                 ) : null}
               </SelectContent>
@@ -591,7 +596,7 @@ export default function SearchPage() {
               ) : (
                 <SearchIcon className="mr-2 h-4 w-4" />
               )}
-              Buscar por Gerente
+              {t("search_manager_btn")}
             </Button>
           </form>
         </div>
@@ -600,7 +605,7 @@ export default function SearchPage() {
       {isLoading && (
         <div className="flex justify-center items-center p-8">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="ml-4 text-lg">Buscando...</p>
+          <p className="ml-4 text-lg">{language === "pt" ? "Buscando..." : "Searching..."}</p>
         </div>
       )}
 
@@ -609,7 +614,7 @@ export default function SearchPage() {
           <div className="flex items-center gap-3 mb-2">
             <AlertTriangle className="h-6 w-6 text-red-500" />
             <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">
-              Erro na Pesquisa
+              {language === "pt" ? "Erro na Pesquisa" : "Search Error"}
             </h3>
           </div>
           <p className="text-red-600 dark:text-red-300">{error}</p>
@@ -618,7 +623,7 @@ export default function SearchPage() {
             onClick={() => setError(null)}
             className="p-0 h-auto mt-2 text-red-500"
           >
-            Tentar nova pesquisa
+            {language === "pt" ? "Tentar nova pesquisa" : "Try new search"}
           </Button>
         </div>
       )}
@@ -632,10 +637,10 @@ export default function SearchPage() {
           <div className="rounded-2xl bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 p-6 shadow-lg text-center">
             <FileSearch className="h-12 w-12 text-slate-400 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
-              Nenhum Relatório
+              {language === "pt" ? "Nenhum Relatório" : "No Reports"}
             </h3>
             <p className="text-slate-500 mt-1">
-              Nenhum relatório encontrado para a OS: "{searchedOs}".
+              {t("search_empty_os")}: "{searchedOs}".
             </p>
           </div>
         )}
@@ -647,10 +652,10 @@ export default function SearchPage() {
           <div className="rounded-2xl bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-lg overflow-hidden">
             <div className="p-4 md:p-6 border-b border-slate-200/50 dark:border-slate-700/50">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                Relatórios para OS: {searchedOs}
+                {t("search_results_title")}: {searchedOs}
               </h3>
               <p className="text-sm text-slate-500 mt-1">
-                {results.length} relatório(s) encontrado(s).
+                {results.length} {t("search_results_count")}
               </p>
             </div>
             <div className="p-4 md:p-6 overflow-hidden">
@@ -663,7 +668,7 @@ export default function SearchPage() {
                         className="cursor-pointer hover:bg-muted/50 transition-colors w-auto"
                       >
                         <div className="flex items-center colunas-lista">
-                          Nome do Formulário{" "}
+                          {t("search_table_name")}{" "}
                           <SortIndicator column="formName" type="report" />
                         </div>
                       </TableHead>
@@ -672,15 +677,15 @@ export default function SearchPage() {
                         className="cursor-pointer hover:bg-muted/50 transition-colors w-[110px] md:w-[15%] text-center"
                       >
                         <div className="flex items-center colunas-lista justify-center">
-                          Data
+                          {t("search_table_date")}
                           <SortIndicator column="submittedAt" type="report" />
                         </div>
                       </TableHead>
                       <TableHead className="text-center colunas-lista hidden md:table-cell md:w-[15%]">
-                        Fotos
+                        {t("search_table_photos")}
                       </TableHead>
                       <TableHead className="text-center colunas-lista w-[60px] md:w-[10%]">
-                        Ações
+                        {t("search_table_actions")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -726,7 +731,7 @@ export default function SearchPage() {
                                 )
                               }
                             >
-                              <Eye className="mr-2 h-4 w-4" /> Ver (
+                              <Eye className="mr-2 h-4 w-4" /> {language === "pt" ? "Ver" : "View"} (
                               {report.photoUrls.length})
                             </Button>
                           ) : (
@@ -763,11 +768,11 @@ export default function SearchPage() {
         osResultsByGerente.length === 0 && (
           <Card className="shadow-md overflow-hidden">
             <CardHeader>
-              <CardTitle>Nenhuma OS Encontrada</CardTitle>
+              <CardTitle>{language === "pt" ? "Nenhuma OS Encontrada" : "No Work Orders Found"}</CardTitle>
             </CardHeader>
             <CardContent>
               <p>
-                Nenhuma Ordem de Serviço encontrada para o gerente: "
+                {t("search_empty_manager")}: "
                 {firestoreGerentes.find((g) => g.id === searchedGerenteId)
                   ?.nome || searchedGerenteId}
                 ".
@@ -783,12 +788,12 @@ export default function SearchPage() {
           <Card className="shadow-md overflow-hidden container-resultados-lista">
             <CardHeader>
               <CardTitle>
-                Ordens de Serviço para Gerente:{" "}
+                {t("search_manager_os_title")}:{" "}
                 {firestoreGerentes.find((g) => g.id === searchedGerenteId)
                   ?.nome || searchedGerenteId}
               </CardTitle>
               <CardDescription>
-                {osResultsByGerente.length} OS(s) encontrada(s).
+                {osResultsByGerente.length} {t("search_manager_os_count")}
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-hidden card-resultados-lista">
@@ -801,7 +806,7 @@ export default function SearchPage() {
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center colunas-lista">
-                          Ordem de Serviço (OS){" "}
+                          {t("search_table_os")}{" "}
                           <SortIndicator column="os" type="os" />
                         </div>
                       </TableHead>
@@ -810,12 +815,12 @@ export default function SearchPage() {
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center colunas-lista">
-                          Último Relatório em{" "}
+                          {t("search_table_last_report")}{" "}
                           <SortIndicator column="lastReportAt" type="os" />
                         </div>
                       </TableHead>
                       <TableHead className="text-center colunas-lista">
-                        Ações
+                        {t("search_table_actions")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -854,7 +859,7 @@ export default function SearchPage() {
                             onClick={() => handleViewReportsForOs(osItem.os)}
                           >
                             <FileSearch className="mr-2 h-4 w-4" />
-                            Ver Relatórios
+                            {language === "pt" ? "Ver Relatórios" : "View Reports"}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -872,7 +877,7 @@ export default function SearchPage() {
         className="mt-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Voltar para o Painel Principal
+        {t("form_back")}
       </Button>
 
       {currentImage && currentImageList.length > 0 && (

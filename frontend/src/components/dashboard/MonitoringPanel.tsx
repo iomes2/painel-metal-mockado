@@ -29,6 +29,7 @@ import {
   Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DEMO_MODE, MOCK_DASHBOARD_STATS, MOCK_FORMS_LIST } from "@/lib/mock-data";
 
 const COLORS = ["#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -78,9 +79,12 @@ function StatCard({ title, value, icon, subtitle, color }: StatCardProps) {
   );
 }
 
+import { useTranslation } from "@/context/language-context";
+
 export default function MonitoringPanel() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useTranslation();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -92,17 +96,19 @@ export default function MonitoringPanel() {
     setExporting(true);
     try {
       const XLSX = await import("xlsx");
-      const token = await user.getIdToken();
-
-      // Fetch all forms data
-      const formsRes = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-        }/api/v1/forms?limit=1000`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const formsJson = await formsRes.json();
-      const forms = formsJson.success ? formsJson.data.forms || [] : [];
+      const forms = DEMO_MODE
+        ? MOCK_FORMS_LIST
+        : await (async () => {
+            const token = await user.getIdToken();
+            const formsRes = await fetch(
+              `${
+                process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+              }/api/v1/forms?limit=1000`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const formsJson = await formsRes.json();
+            return formsJson.success ? formsJson.data.forms || [] : [];
+          })();
 
       const wb = XLSX.utils.book_new();
       const { counts, charts } = data;
@@ -218,20 +224,20 @@ export default function MonitoringPanel() {
       XLSX.utils.book_append_sheet(wb, wsMonth, "Histórico Mensal");
 
       // Generate and download
-      const fileName = `relatorio_monitoramento_${
+      const fileName = `analytics_report_${
         new Date().toISOString().split("T")[0]
       }.xlsx`;
       XLSX.writeFile(wb, fileName);
 
       toast({
-        title: "Relatório exportado!",
-        description: `${forms.length} registros exportados para ${fileName}`,
+        title: t("mon_export_success"),
+        description: `${forms.length} ${t("mon_export_desc")} (${fileName})`,
       });
     } catch (error: any) {
       console.error("Erro ao exportar Excel:", error);
       toast({
-        title: "Erro ao exportar",
-        description: error.message || "Falha ao gerar arquivo Excel",
+        title: language === "pt" ? "Erro ao exportar" : "Export Error",
+        description: error.message || (language === "pt" ? "Falha ao gerar arquivo Excel" : "Failed to generate Excel file"),
         variant: "destructive",
       });
     } finally {
@@ -243,6 +249,11 @@ export default function MonitoringPanel() {
     async function fetchStats() {
       if (!user) return;
       try {
+        if (DEMO_MODE) {
+          setData(MOCK_DASHBOARD_STATS);
+          setLoading(false);
+          return;
+        }
         const token = await user.getIdToken();
         const res = await fetch(
           `${
@@ -269,7 +280,7 @@ export default function MonitoringPanel() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-pulse text-muted-foreground">
-          Carregando dados...
+          {t("mon_loading")}
         </div>
       </div>
     );
@@ -277,8 +288,8 @@ export default function MonitoringPanel() {
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center h-64 text-destructive">
-        Erro ao carregar dados.
+      <div className="flex items-center justify-center h-64 text-destructive font-semibold">
+        {language === "pt" ? "Erro ao carregar dados." : "Failed to load dashboard metrics."}
       </div>
     );
   }
@@ -288,6 +299,49 @@ export default function MonitoringPanel() {
     counts.totalForms > 0
       ? Math.round((1 - counts.pendingReviews / counts.totalForms) * 100)
       : 0;
+
+  // Localize charts dynamically for EN/PT
+  const localizedCharts = {
+    ...charts,
+    formsByStatus: charts.formsByStatus.map((s: any) => {
+      let localizedName = s.name;
+      if (language === "en") {
+        if (s.name === "APPROVED") localizedName = "Approved";
+        else if (s.name === "PENDING") localizedName = "Pending Review";
+        else if (s.name === "REJECTED") localizedName = "Rejected";
+      } else {
+        if (s.name === "APPROVED") localizedName = "Aprovado";
+        else if (s.name === "PENDING") localizedName = "Pendente";
+        else if (s.name === "REJECTED") localizedName = "Rejeitado";
+      }
+      return { ...s, name: localizedName };
+    }),
+    formsByType: charts.formsByType.map((t: any) => {
+      let localizedName = t.name;
+      if (language === "en") {
+        if (t.name === "relatorio-diario-obra" || t.name === "cronograma-diario-obra" || t.name === "Diário de Obra") {
+          localizedName = "Daily Work Log";
+        } else if (t.name === "relatorio-inspecao-site" || t.name === "Relatório de Inspeção") {
+          localizedName = "Site Inspection Report";
+        } else if (t.name === "registro-nao-conformidade" || t.name === "Não Conformidade (RNC)") {
+          localizedName = "Non-Conformance Report (NCR)";
+        } else if (t.name === "permissao-trabalho-altura" || t.name === "Permissão de Trabalho") {
+          localizedName = "Work at Height Permit";
+        }
+      } else {
+        if (t.name === "relatorio-diario-obra" || t.name === "cronograma-diario-obra" || t.name === "Daily Work Log") {
+          localizedName = "Diário de Obra";
+        } else if (t.name === "relatorio-inspecao-site" || t.name === "Site Inspection Report") {
+          localizedName = "Relatório de Inspeção";
+        } else if (t.name === "registro-nao-conformidade" || t.name === "Non-Conformance Report (NCR)") {
+          localizedName = "Não Conformidade (RNC)";
+        } else if (t.name === "permissao-trabalho-altura" || t.name === "Work at Height Permit") {
+          localizedName = "Permissão de Trabalho";
+        }
+      }
+      return { ...t, name: localizedName };
+    }),
+  };
 
   return (
     <div className="min-h-screen">
@@ -316,14 +370,14 @@ export default function MonitoringPanel() {
                   <span>Dashboard</span>
                   <ChevronRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                   <span className="text-primary font-medium">
-                    Monitoramento
+                    {t("menu_monitoring")}
                   </span>
                 </div>
                 <h1 className="text-lg sm:text-2xl font-bold tracking-tight">
-                  Painel de Monitoramento
+                  {t("mon_title")}
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 hidden sm:block">
-                  Acompanhe métricas e relatórios em tempo real
+                  {t("mon_subtitle")}
                 </p>
               </div>
             </div>
@@ -338,12 +392,12 @@ export default function MonitoringPanel() {
               {exporting ? (
                 <>
                   <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span className="hidden sm:inline">Exportando...</span>
+                  <span className="hidden sm:inline">{t("mon_exporting")}</span>
                 </>
               ) : (
                 <>
                   <FileSpreadsheet className="h-4 w-4" />
-                  <span className="hidden sm:inline">Exportar Excel</span>
+                  <span className="hidden sm:inline">{t("mon_export")}</span>
                 </>
               )}
             </Button>
@@ -353,33 +407,33 @@ export default function MonitoringPanel() {
         {/* KPI Cards - 2x2 grid on mobile */}
         <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Formulários"
+            title={t("mon_card_forms")}
             value={counts.totalForms}
             icon={<FileText className="h-4 w-4 sm:h-5 sm:w-5" />}
-            subtitle="Registrados no sistema"
+            subtitle={t("mon_card_forms_sub")}
             color="#0ea5e9"
           />
           <StatCard
-            title="Pendentes"
+            title={t("mon_card_pending")}
             value={counts.pendingReviews}
             icon={<Clock className="h-4 w-4 sm:h-5 sm:w-5" />}
-            subtitle="Aguardando revisão"
+            subtitle={t("mon_card_pending_sub")}
             color="#f59e0b"
           />
           {counts.totalUsers !== null && (
             <StatCard
-              title="Usuários"
+              title={t("mon_card_users")}
               value={counts.totalUsers}
               icon={<Users className="h-4 w-4 sm:h-5 sm:w-5" />}
-              subtitle="Cadastrados"
+              subtitle={t("mon_card_users_sub")}
               color="#8b5cf6"
             />
           )}
           <StatCard
-            title="Aprovação"
+            title={t("mon_card_approval")}
             value={`${approvalRate}%`}
             icon={<TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />}
-            subtitle="Taxa"
+            subtitle={t("mon_card_approval_sub")}
             color="#22c55e"
           />
         </div>
@@ -391,7 +445,7 @@ export default function MonitoringPanel() {
             <CardHeader className="py-2 px-3 sm:py-3 sm:px-4 border-b border-border/50">
               <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
                 <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary animate-pulse" />
-                Formulários por Mês
+                {t("mon_chart_monthly")}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-2 sm:p-4">
@@ -433,14 +487,14 @@ export default function MonitoringPanel() {
             <CardHeader className="py-2 px-3 sm:py-3 sm:px-4 border-b border-border/50">
               <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
                 <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-500 animate-pulse" />
-                Status
+                {t("mon_chart_status")}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-2 sm:p-4">
               <ResponsiveContainer width="100%" height={150}>
                 <PieChart>
                   <Pie
-                    data={charts.formsByStatus}
+                    data={localizedCharts.formsByStatus}
                     cx="50%"
                     cy="50%"
                     innerRadius={35}
@@ -448,7 +502,7 @@ export default function MonitoringPanel() {
                     paddingAngle={4}
                     dataKey="value"
                   >
-                    {charts.formsByStatus.map((entry: any, index: number) => (
+                    {localizedCharts.formsByStatus.map((entry: any, index: number) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
@@ -468,13 +522,13 @@ export default function MonitoringPanel() {
           <CardHeader className="py-2 px-3 sm:py-3 sm:px-4 border-b border-border/50">
             <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2">
               <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Tipos de Formulários
+              {t("mon_chart_types")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-4">
             <ResponsiveContainer width="100%" height={100}>
               <BarChart
-                data={charts.formsByType}
+                data={localizedCharts.formsByType}
                 layout="vertical"
                 margin={{ left: 80 }}
               >

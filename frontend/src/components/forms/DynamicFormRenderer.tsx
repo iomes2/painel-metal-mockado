@@ -11,6 +11,7 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/context/language-context";
 
 import {
   Form,
@@ -36,7 +37,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getFormIcon } from "@/components/icons/icon-resolver";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +52,7 @@ import { auth, storage, db } from "@/lib/firebase"; // db importado
 import { Timestamp } from "firebase/firestore";
 import { uploadFiles, submitRelatorio } from "@/lib/api-client";
 import { DynamicField } from "./DynamicField";
+import { DEMO_MODE, MOCK_USER } from "@/lib/mock-data";
 
 interface DynamicFormRendererProps {
   formDefinition: FormDefinition;
@@ -59,21 +61,22 @@ interface DynamicFormRendererProps {
 }
 
 // Helper to create schema for a single field
-const createFieldSchema = (field: FormFieldType): z.ZodTypeAny => {
+const createFieldSchema = (field: FormFieldType, lang: string = "pt"): z.ZodTypeAny => {
+  const isEn = lang === "en";
   switch (field.type) {
     case "text":
     case "textarea":
       if (field.required) {
-        return z.string().min(1, `${field.label} é obrigatório(a).`);
+        return z.string().min(1, isEn ? `${field.label} is required.` : `${field.label} é obrigatório(a).`);
       }
       return z.string().optional().or(z.literal(""));
 
     case "email":
       const emailSchema = z
         .string()
-        .email(`Formato de e-mail inválido para ${field.label}.`);
+        .email(isEn ? `Invalid email format for ${field.label}.` : `Formato de e-mail inválido para ${field.label}.`);
       if (field.required) {
-        return emailSchema.min(1, `${field.label} é obrigatório(a).`);
+        return emailSchema.min(1, isEn ? `${field.label} is required.` : `${field.label} é obrigatório(a).`);
       }
       return emailSchema.optional().or(z.literal(""));
 
@@ -82,7 +85,9 @@ const createFieldSchema = (field: FormFieldType): z.ZodTypeAny => {
       if (field.required) {
         return numberSchema.min(
           0.00001,
-          `${field.label} é obrigatório(a) e deve ser diferente de zero, se aplicável.`
+          isEn
+            ? `${field.label} is required and must be different from zero, if applicable.`
+            : `${field.label} é obrigatório(a) e deve ser diferente de zero, se aplicável.`
         );
       }
       return numberSchema.optional().nullable();
@@ -90,8 +95,8 @@ const createFieldSchema = (field: FormFieldType): z.ZodTypeAny => {
     case "date":
       if (field.required) {
         return z.coerce.date({
-          required_error: `${field.label} é obrigatório(a).`,
-          invalid_type_error: `Data inválida para ${field.label}.`,
+          required_error: isEn ? `${field.label} is required.` : `${field.label} é obrigatório(a).`,
+          invalid_type_error: isEn ? `Invalid date for ${field.label}.` : `Data inválida para ${field.label}.`,
         });
       }
       return z.preprocess(
@@ -106,7 +111,7 @@ const createFieldSchema = (field: FormFieldType): z.ZodTypeAny => {
       if (field.required) {
         return z
           .string()
-          .min(1, `Por favor, selecione uma opção para ${field.label}.`);
+          .min(1, isEn ? `Please select an option for ${field.label}.` : `Por favor, selecione uma opção para ${field.label}.`);
       }
       return z.string().optional().or(z.literal(""));
 
@@ -119,10 +124,10 @@ const createFieldSchema = (field: FormFieldType): z.ZodTypeAny => {
 };
 
 // Helper to build Zod schema from form definition
-const buildZodSchema = (fields: FormFieldType[]) => {
+const buildZodSchema = (fields: FormFieldType[], lang: string = "pt") => {
   const schemaShape: Record<string, z.ZodTypeAny> = {};
   fields.forEach((field) => {
-    schemaShape[field.id] = createFieldSchema(field);
+    schemaShape[field.id] = createFieldSchema(field, lang);
   });
   return z.object(schemaShape);
 };
@@ -133,6 +138,10 @@ export function DynamicFormRenderer({
   onSubmit,
 }: DynamicFormRendererProps) {
   const { toast } = useToast();
+  const { t, language } = useTranslation();
+  const localizedForm = useMemo(() => {
+    return translateFormDefinition(formDefinition, language);
+  }, [formDefinition, language]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -145,10 +154,10 @@ export function DynamicFormRenderer({
     Record<string, string>
   >({});
 
-  const formSchema = buildZodSchema(formDefinition.fields);
+  const formSchema = buildZodSchema(localizedForm.fields, language);
   type FormValues = z.infer<typeof formSchema>;
 
-  const defaultValues = formDefinition.fields.reduce((acc, field) => {
+  const defaultValues = localizedForm.fields.reduce((acc, field) => {
     acc[field.id] =
       field.defaultValue !== undefined
         ? field.defaultValue
@@ -210,7 +219,7 @@ export function DynamicFormRenderer({
 
   // Auto-fill manager/responsible fields
   useEffect(() => {
-    const user = auth.currentUser;
+    const user = DEMO_MODE ? (MOCK_USER as any) : auth.currentUser;
     if (user?.displayName) {
       const managerFields = [
         "gerente",
@@ -220,7 +229,7 @@ export function DynamicFormRenderer({
       ];
       managerFields.forEach((fieldName) => {
         // Check if field exists in definition and has no current value
-        const fieldExists = formDefinition.fields.some(
+        const fieldExists = localizedForm.fields.some(
           (f) => f.id === fieldName
         );
         const currentValue = form.getValues(fieldName);
@@ -230,7 +239,7 @@ export function DynamicFormRenderer({
         }
       });
     }
-  }, [formDefinition, form]);
+  }, [localizedForm, form]);
 
   useEffect(() => {
     const osFromQuery = searchParams.get("os");
@@ -248,7 +257,7 @@ export function DynamicFormRenderer({
       setMainOriginatingFormId(originatingIdFromQuery);
     }
 
-    const formOsField = formDefinition.fields.find(
+    const formOsField = localizedForm.fields.find(
       (f) => f.id === "ordemServico"
     );
     if (formOsField && osFromQuery) {
@@ -259,8 +268,8 @@ export function DynamicFormRenderer({
       }
     }
   }, [
-    formDefinition.id,
-    formDefinition.fields,
+    localizedForm.id,
+    localizedForm.fields,
     searchParams,
     stableSetValue,
     stableGetValues,
@@ -268,9 +277,9 @@ export function DynamicFormRenderer({
 
   // Generic Side Effect: Clear values of hidden fields
   useEffect(() => {
-    formDefinition.fields.forEach((field) => {
+    localizedForm.fields.forEach((field) => {
       const isVisible = shouldRenderFormItem(
-        formDefinition,
+        localizedForm,
         field,
         watchedValues
       );
@@ -286,16 +295,16 @@ export function DynamicFormRenderer({
     // Except "motivoNaoCumprimento" which compared times.
     // The new "shouldRenderCronogramaItem" handles visibility, and this effect clears it.
     // So distinct side-effect function is likely redundant for clearing.
-  }, [formDefinition, watchedValues, stableGetValues, stableSetValue]);
+  }, [localizedForm, watchedValues, stableGetValues, stableSetValue]);
 
   const handleLocalSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsSubmitting(true);
-    const currentUser = auth.currentUser;
+    const currentUser = DEMO_MODE ? (MOCK_USER as any) : auth.currentUser;
 
     if (!currentUser) {
       toast({
-        title: "Erro de Autenticação",
-        description: "Você precisa estar logado para enviar formulários.",
+        title: language === "pt" ? "Erro de Autenticação" : "Authentication Error",
+        description: language === "pt" ? "Você precisa estar logado para enviar formulários." : "You must be logged in to submit forms.",
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -311,7 +320,7 @@ export function DynamicFormRenderer({
       // 1. Upload de arquivos via API
       const finalFormDataToSave = await processFileUploads(
         data,
-        formDefinition,
+        localizedForm,
         currentUser,
         osValue,
         submissionTimestamp,
@@ -321,19 +330,19 @@ export function DynamicFormRenderer({
       // 2. Converter Dates para Timestamps
       const formDataWithTimestamps = convertDatesToTimestamps(
         finalFormDataToSave,
-        formDefinition
+        localizedForm
       );
 
       // 3. Submeter relatório via API
       const payload = {
-        formType: formDefinition.id,
-        formName: formDefinition.name,
+        formType: localizedForm.id,
+        formName: localizedForm.name,
         formData: formDataWithTimestamps,
         submittedBy: currentUser.uid,
         submittedAt: submissionTimestamp,
         gerenteId: currentUser.email?.split("@")[0] || "desconhecido",
         ...(mainOriginatingFormId &&
-          formDefinition.id !== "cronograma-diario-obra" && {
+          localizedForm.id !== "cronograma-diario-obra" && {
             originatingFormId: mainOriginatingFormId,
           }),
         ...(osValue && { osNumber: osValue.trim() }),
@@ -343,8 +352,10 @@ export function DynamicFormRenderer({
       if (onSubmit) {
         await onSubmit(payload);
         toast({
-          title: "Sucesso!",
-          description: `Formulário "${formDefinition.name}" atualizado com sucesso!`,
+          title: language === "pt" ? "Sucesso!" : "Success!",
+          description: language === "pt"
+            ? `Formulário "${localizedForm.name}" atualizado com sucesso!`
+            : `Form "${localizedForm.name}" updated successfully!`,
         });
         reset(defaultValues);
         setIsShareDialogOpen(true);
@@ -359,16 +370,18 @@ export function DynamicFormRenderer({
       }
 
       toast({
-        title: "Sucesso!",
+        title: language === "pt" ? "Sucesso!" : "Success!",
         description: osValue
-          ? `Formulário "${
-              formDefinition.name
-            }" para OS "${osValue.trim()}" salvo com arquivos enviados!`
-          : `Formulário "${formDefinition.name}" salvo com sucesso e arquivos enviados!`,
+          ? (language === "pt"
+              ? `Formulário "${localizedForm.name}" para OS "${osValue.trim()}" salvo com arquivos enviados!`
+              : `Form "${localizedForm.name}" for Work Order "${osValue.trim()}" saved and files uploaded!`)
+          : (language === "pt"
+              ? `Formulário "${localizedForm.name}" salvo com sucesso e arquivos enviados!`
+              : `Form "${localizedForm.name}" saved successfully and files uploaded!`),
       });
 
       const currentFormIsMainOriginator =
-        formDefinition.id === "cronograma-diario-obra";
+        localizedForm.id === "cronograma-diario-obra";
       const nextMainOriginatingFormId = currentFormIsMainOriginator
         ? result.reportId
         : mainOriginatingFormId;
@@ -376,7 +389,7 @@ export function DynamicFormRenderer({
       reset(defaultValues); // Reset form fields for current form
 
       const handled = handleLinkedFormTriggers(
-        formDefinition,
+        localizedForm,
         data,
         result,
         carryOverQueryParams,
@@ -394,9 +407,10 @@ export function DynamicFormRenderer({
         error
       );
       toast({
-        title: "Erro ao Salvar",
-        description:
-          "Não foi possível salvar o formulário ou enviar os arquivos. Tente novamente.",
+        title: language === "pt" ? "Erro ao Salvar" : "Error Saving",
+        description: language === "pt"
+          ? "Não foi possível salvar o formulário ou enviar os arquivos. Tente novamente."
+          : "Could not save form or upload files. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -404,7 +418,7 @@ export function DynamicFormRenderer({
     }
   };
 
-  const IconComponent = getFormIcon(formDefinition.iconName);
+  const IconComponent = getFormIcon(localizedForm.iconName);
 
   const [submittedReportId, setSubmittedReportId] = useState<string | null>(
     null
@@ -415,8 +429,8 @@ export function DynamicFormRenderer({
 
     try {
       toast({
-        title: "Gerando PDF...",
-        description: "O download iniciará em instantes.",
+        title: language === "pt" ? "Gerando PDF..." : "Generating PDF...",
+        description: language === "pt" ? "O download iniciará em instantes." : "The download will start in a moment.",
       });
 
       const { downloadFormPdf } = await import("@/lib/api-client");
@@ -424,15 +438,15 @@ export function DynamicFormRenderer({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `relatorio-${formDefinition.id}-${submittedReportId}.pdf`;
+      a.download = `relatorio-${localizedForm.id}-${submittedReportId}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
 
       toast({
-        title: "PDF baixado",
-        description: "O arquivo foi salvo no seu dispositivo.",
+        title: language === "pt" ? "PDF baixado" : "PDF Downloaded",
+        description: language === "pt" ? "O arquivo foi salvo no seu dispositivo." : "The file has been saved to your device.",
       });
 
       // Fechar modal e redirecionar após download
@@ -440,8 +454,8 @@ export function DynamicFormRenderer({
     } catch (err: any) {
       console.error("Erro ao baixar PDF:", err);
       toast({
-        title: "Erro ao baixar PDF",
-        description: err.message || "Falha ao gerar o arquivo.",
+        title: language === "pt" ? "Erro ao baixar PDF" : "Error downloading PDF",
+        description: err.message || (language === "pt" ? "Falha ao gerar o arquivo." : "Failed to generate the file."),
         variant: "destructive",
       });
     }
@@ -467,7 +481,7 @@ export function DynamicFormRenderer({
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
               <CardTitle className="text-lg sm:text-2xl leading-tight break-words">
-                {formDefinition.name}
+                {localizedForm.name}
               </CardTitle>
             </div>
             <Button
@@ -477,25 +491,26 @@ export function DynamicFormRenderer({
               className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 flex-shrink-0 -mt-1"
             >
               <ArrowLeft className="mr-1 h-4 w-4" />
-              Voltar
+              {language === "pt" ? "Voltar" : "Back"}
             </Button>
           </div>
           <CardDescription className="mt-1">
-            {formDefinition.description}
+            {localizedForm.description}
           </CardDescription>
           {mainOriginatingFormId && (
             <div className="mt-2 p-2 bg-accent/10 border border-accent/30 rounded-md text-sm text-accent-foreground/80 flex items-center gap-2">
               <Info className="h-4 w-4" />
               <span>
-                Este formulário faz parte de uma sequência iniciada pelo
-                Relatório ID: {mainOriginatingFormId}.
+                {language === "pt"
+                  ? `Este formulário faz parte de uma sequência iniciada pelo Relatório ID: ${mainOriginatingFormId}.`
+                  : `This form is part of a sequence initiated by Report ID: ${mainOriginatingFormId}.`}
               </span>
             </div>
           )}
           {Object.keys(carryOverQueryParams).length > 0 && (
             <div className="mt-1 p-2 bg-muted/50 border border-border rounded-md text-xs text-muted-foreground">
               <p className="font-medium mb-1">
-                Dados recebidos do formulário anterior:
+                {language === "pt" ? "Dados recebidos do formulário anterior:" : "Data received from the previous form:"}
               </p>
               <ul className="list-disc list-inside pl-2">
                 {Object.entries(carryOverQueryParams).map(([key, value]) => (
@@ -510,9 +525,9 @@ export function DynamicFormRenderer({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleLocalSubmit)}>
             <CardContent className="space-y-6">
-              {formDefinition.fields.map((field) => {
+              {localizedForm.fields.map((field) => {
                 const shouldRenderField = shouldRenderFormItem(
-                  formDefinition,
+                  localizedForm,
                   field,
                   watchedValues
                 );
@@ -542,7 +557,9 @@ export function DynamicFormRenderer({
                 className="w-full sm:w-auto bg-primary hover:bg-primary/90"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Enviando..." : "Enviar Formulário"}
+                {isSubmitting
+                  ? (language === "pt" ? "Enviando..." : "Submitting...")
+                  : (language === "pt" ? "Enviar Formulário" : "Submit Form")}
               </Button>
             </CardFooter>
           </form>
@@ -552,18 +569,21 @@ export function DynamicFormRenderer({
       <AlertDialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Formulário Enviado com Sucesso!</AlertDialogTitle>
+            <AlertDialogTitle>
+              {language === "pt" ? "Formulário Enviado com Sucesso!" : "Form Submitted Successfully!"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Seu formulário "{formDefinition.name}" foi salvo. Deseja baixar o
-              PDF gerado agora?
+              {language === "pt"
+                ? `Seu formulário "${localizedForm.name}" foi salvo. Deseja baixar o PDF gerado agora?`
+                : `Your form "${localizedForm.name}" has been saved. Would you like to download the generated PDF now?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleShareDialogCancel}>
-              Não, Voltar ao Início
+              {language === "pt" ? "Não, Voltar ao Início" : "No, Back to Dashboard"}
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleShareDialogAction}>
-              Sim, Baixar PDF
+              {language === "pt" ? "Sim, Baixar PDF" : "Yes, Download PDF"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -584,14 +604,19 @@ async function processFileUploads(
 ) {
   const finalFormDataToSave = { ...data } as Record<string, any>;
 
+  // Detect current language from window / default to pt
+  const isEn = typeof window !== "undefined" && window.localStorage.getItem("app_lang") === "en";
+
   for (const field of formDefinition.fields) {
     if (field.type === "file" && data[field.id] instanceof FileList) {
       const fileList = data[field.id] as FileList;
 
       if (fileList.length > 0) {
         toast({
-          title: "Enviando arquivos...",
-          description: `Por favor, aguarde. ${fileList.length} arquivo(s) sendo processado(s).`,
+          title: isEn ? "Uploading files..." : "Enviando arquivos...",
+          description: isEn
+            ? `Please wait. ${fileList.length} file(s) being processed.`
+            : `Por favor, aguarde. ${fileList.length} arquivo(s) sendo processado(s).`,
         });
 
         const uploadedPhotos = await uploadFiles(
@@ -1008,3 +1033,118 @@ function shouldRenderInspecaoItem(
   }
   return true;
 }
+
+export const translateFormDefinition = (form: FormDefinition, lang: string): FormDefinition => {
+  if (lang !== "en") return form;
+
+  const translatedFields = form.fields.map((field) => {
+    let label = field.label;
+    let placeholder = field.placeholder;
+    let options = field.options;
+
+    // Common labels translation
+    const labelTranslations: Record<string, string> = {
+      "Data Inicial": "Start Date",
+      "Data Final Projetada": "Projected End Date",
+      "OS": "Work Order (OS)",
+      "ETAPA (Descrição)": "STAGE (Description)",
+      "Data Projetada para a Etapa": "Projected Stage Date",
+      "Data Atual": "Current Date",
+      "Encarregado / Líder da Equipe": "Supervisor / Team Leader",
+      "Assinatura do Encarregado": "Supervisor Signature",
+      "Situação da Etapa no Dia": "Daily Stage Status",
+      "Fotos da Etapa no Dia": "Daily Stage Photos",
+      "Horas de Retrabalho / Paradas no Dia": "Daily Rework / Downtime Hours",
+      "Horário Efetivo de Início das Atividades": "Actual Work Start Time",
+      "Horário de Início de Jornada Previsto": "Scheduled Start Time",
+      "Horário Efetivo de Saída da Obra": "Actual Leave Time",
+      "Horário de Término de Jornada Previsto": "Scheduled End Time",
+      "Motivo do Atraso": "Reason for Delay",
+      "Fotos Enviadas": "Photos Uploaded",
+      "Fotos não enviadas": "Photos not uploaded",
+      "Motivo do Retrabalho / Parada": "Reason for Rework / Downtime",
+      "Motivo do Não Cumprimento do Horário de Início": "Reason for Start Time Delay",
+      "Motivo do Não Cumprimento do Horário de Saída": "Reason for Leave Time Mismatch",
+      "Gerente Responsável": "Responsible Manager",
+      "Status da Revisão": "Review Status",
+      "Descrição da Não Conformidade": "Description of Non-Conformance",
+      "Ações Corretivas Propostas": "Proposed Corrective Actions",
+      "Fotos da Não Conformidade": "Non-Conformance Photos",
+      "Enviar Fotos da Não Conformidade": "Upload Non-Conformance Photos",
+      "Conformidade com Normas de Segurança": "Safety Compliance Status",
+      "Itens Não Conformes Observados": "Non-Conformance Items Observed",
+      "Ações Corretivas Sugeridas": "Suggested Corrective Actions",
+      "Fotos da Inspeção": "Inspection Photos",
+      "Enviar Fotos da Inspeção": "Upload Inspection Photos",
+    };
+
+    if (labelTranslations[label]) {
+      label = labelTranslations[label];
+    } else if (label.startsWith("---") && label.endsWith("---")) {
+      label = label.replace("RELATÓRIO DE DESENVOLVIMENTO", "DAILY PROGRESS REPORT")
+                   .replace("DADOS DO DIA", "DAILY DATA");
+    }
+
+    const placeholderTranslations: Record<string, string> = {
+      "Nome/Descrição da etapa": "Name/Description of the stage",
+      "Selecione...": "Select...",
+      "Escolha uma data": "Pick a date",
+      "Digite aqui...": "Type here...",
+    };
+
+    if (placeholder && placeholderTranslations[placeholder]) {
+      placeholder = placeholderTranslations[placeholder];
+    }
+
+    // Common option translations
+    if (options) {
+      options = options.map((opt) => {
+        let optLabel = opt.label;
+        const optTranslations: Record<string, string> = {
+          "Em dia": "On Track",
+          "Adiantado": "Ahead",
+          "Em atraso": "Delayed",
+          "Sim": "Yes",
+          "Não": "No",
+          "S": "Yes",
+          "N": "No",
+          "Falta de Mão de Obra": "Labor Shortage",
+          "Problema com Equipamentos": "Equipment Issues",
+          "Clima / Chuva": "Weather / Rain",
+          "Atraso no fornecimento de material": "Material Supply Delay",
+          "Aguardando liberação do cliente": "Awaiting Client Approval",
+          "Outros (descrever no Diário)": "Others (describe in Daily Log)",
+          "Aprovado": "Approved",
+          "Pendente": "Pending",
+          "Reprovado": "Rejected",
+          "Aprovado com Ressalvas": "Approved with Reservations",
+        };
+        if (optTranslations[optLabel]) {
+          optLabel = optTranslations[optLabel];
+        }
+        return { ...opt, label: optLabel };
+      });
+    }
+
+    return { ...field, label, placeholder, options };
+  });
+
+  // Translate form name and description
+  let name = form.name;
+  let description = form.description;
+  const nameTranslations: Record<string, string> = {
+    "DOC-020: Acompanhamento de Cronograma e Diário de Obra": "DOC-020: Daily Work Progress Log",
+    "DOC-010: Relatório de Não-Conformidade - RNC": "DOC-010: Non-Conformance Report (NCR)",
+    "DOC-005: Relatório de Inspeção de Obra": "DOC-005: Site Inspection Report",
+  };
+  const descTranslations: Record<string, string> = {
+    "Registro diário de desenvolvimento da etapa, mão de obra, horários e ocorrências.": "Daily progress report, manpower planning, work schedules and incident log.",
+    "Registro de não conformidades, desvios e ações corretivas/preventivas propostas.": "Recording of non-conformities, deviations and proposed corrective/preventive actions.",
+    "Inspeção de içamento, estrutura montada, telhas e liberação final do canteiro.": "Inspection of rigging operations, assembled structure, roofing safety, and site sign-off.",
+  };
+
+  if (nameTranslations[name]) name = nameTranslations[name];
+  if (descTranslations[description]) description = descTranslations[description];
+
+  return { ...form, name, description, fields: translatedFields };
+};

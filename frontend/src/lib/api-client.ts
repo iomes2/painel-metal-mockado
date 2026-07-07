@@ -23,6 +23,15 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
+import {
+  DEMO_MODE,
+  MOCK_USER_PROFILE,
+  MOCK_GERENTES,
+  MOCK_RELATORIOS,
+  MOCK_OS_BY_GERENTE,
+  MOCK_NOTIFICATIONS,
+  addMockRelatorio,
+} from "./mock-data";
 
 // Configuração
 const USE_BACKEND = process.env.NEXT_PUBLIC_USE_BACKEND === "true";
@@ -264,6 +273,7 @@ export interface UserProfile {
  * Busca dados do usuário atual (incluindo role)
  */
 export async function fetchCurrentUser(): Promise<UserProfile | null> {
+  if (DEMO_MODE) return MOCK_USER_PROFILE;
   if (USE_BACKEND) {
     try {
       const response = await fetchBackend("/api/v1/users/me");
@@ -285,6 +295,7 @@ export async function fetchCurrentUser(): Promise<UserProfile | null> {
  * Busca lista de gerentes cadastrados
  */
 export async function fetchGerentes(): Promise<Gerente[]> {
+  if (DEMO_MODE) return MOCK_GERENTES;
   if (USE_BACKEND) {
     // Backend
     const response = await fetchBackend("/api/v1/gerentes");
@@ -310,6 +321,7 @@ export async function fetchGerentes(): Promise<Gerente[]> {
 export async function fetchRelatoriosByOs(
   osNumber: string
 ): Promise<ReportData[]> {
+  if (DEMO_MODE) return MOCK_RELATORIOS[osNumber] || [];
   if (USE_BACKEND) {
     // Backend
     const response = await fetchBackend(`/api/v1/relatorios?os=${osNumber}`);
@@ -350,6 +362,7 @@ export async function fetchRelatoriosByOs(
  * Busca Ordens de Serviço por gerente
  */
 export async function fetchOsByGerente(gerenteId: string): Promise<OsData[]> {
+  if (DEMO_MODE) return MOCK_OS_BY_GERENTE[gerenteId] || [];
   if (USE_BACKEND) {
     // Backend
     const response = await fetchBackend(
@@ -390,6 +403,10 @@ export async function fetchRelatorioById(
   osId: string,
   reportId: string
 ): Promise<ReportData | null> {
+  if (DEMO_MODE) {
+    const reports = MOCK_RELATORIOS[osId] || [];
+    return reports.find((r) => r.id === reportId) || null;
+  }
   if (USE_BACKEND) {
     // Backend
     const response = await fetchBackend(
@@ -424,6 +441,7 @@ export async function fetchRelatorioById(
  * Deleta uma foto por ID
  */
 export async function deletePhoto(photoId: string): Promise<void> {
+  if (DEMO_MODE) return;
   if (!photoId) throw new Error("photoId is required");
   const response = await fetchBackend(`/api/v1/photos/${photoId}`, {
     method: "DELETE",
@@ -438,6 +456,7 @@ export async function deletePhoto(photoId: string): Promise<void> {
  * Deleta arquivo por URL caso não exista ID de photo
  */
 export async function deletePhotoByUrl(url: string): Promise<void> {
+  if (DEMO_MODE) return;
   if (!url) throw new Error("url is required");
   const encoded = encodeURIComponent(url);
   const response = await fetchBackend(`/api/v1/photos?url=${encoded}`, {
@@ -453,6 +472,9 @@ export async function deletePhotoByUrl(url: string): Promise<void> {
  * Baixar PDF do formulário
  */
 export async function downloadFormPdf(formId: string): Promise<Blob> {
+  if (DEMO_MODE) {
+    return new Blob(["Demo PDF - Dados simulados"], { type: "application/pdf" });
+  }
   if (!formId) throw new Error("formId is required");
   const response = await fetchBackend(`/api/v1/forms/${formId}/pdf`, {
     method: "GET",
@@ -468,6 +490,7 @@ export async function downloadFormPdf(formId: string): Promise<Blob> {
  * Atualiza formulário por ID
  */
 export async function updateForm(formId: string, updates: any): Promise<any> {
+  if (DEMO_MODE) return { id: formId, ...updates };
   if (!formId) throw new Error("formId is required");
   const response = await fetchBackend(`/api/v1/forms/${formId}`, {
     method: "PUT",
@@ -493,6 +516,19 @@ export async function uploadFiles(
   osNumber: string,
   submissionTimestamp: number
 ): Promise<ReportPhoto[]> {
+  if (DEMO_MODE) {
+    const mockUploads: ReportPhoto[] = [];
+    for (let i = 0; i < files.length; i++) {
+      mockUploads.push({
+        name: files[i].name,
+        url: `https://placehold.co/800x600/0ea5e9/white?text=${encodeURIComponent(files[i].name)}`,
+        type: files[i].type,
+        size: files[i].size,
+      });
+    }
+    await new Promise((r) => setTimeout(r, 500));
+    return mockUploads;
+  }
   if (USE_BACKEND) {
     return uploadFilesToBackend(
       files,
@@ -597,6 +633,11 @@ export async function submitRelatorio(payload: {
   originatingFormId?: string;
   osNumber?: string;
 }): Promise<{ reportId: string; osId: string }> {
+  if (DEMO_MODE) {
+    const osNumber = payload.osNumber || "DEMO-OS";
+    await new Promise((r) => setTimeout(r, 400));
+    return addMockRelatorio(osNumber, payload);
+  }
   if (USE_BACKEND) {
     // Backend
     const response = await fetchBackend("/api/v1/relatorios", {
@@ -664,6 +705,18 @@ export async function downloadRelatorioPdf(
   reportId: string,
   osNumber: string
 ): Promise<void> {
+  if (DEMO_MODE) {
+    const blob = new Blob([`Demo PDF - Relatório ${reportId} - OS ${osNumber}`], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `relatorio-${osNumber}-${reportId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return;
+  }
   if (!USE_BACKEND) {
     throw new Error("Geração de PDF só está disponível com backend ativo");
   }
@@ -704,6 +757,7 @@ export interface AppNotification {
 }
 
 export async function fetchNotifications(): Promise<AppNotification[]> {
+  if (DEMO_MODE) return MOCK_NOTIFICATIONS;
   if (USE_BACKEND) {
     try {
       const response = await fetchBackend("/api/v1/notifications");
@@ -718,6 +772,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {
+  if (DEMO_MODE) return;
   if (USE_BACKEND) {
     try {
       await fetchBackend(`/api/v1/notifications/${id}/read`, {
@@ -730,6 +785,7 @@ export async function markNotificationAsRead(id: string): Promise<void> {
 }
 
 export async function markAllNotificationsAsRead(): Promise<void> {
+  if (DEMO_MODE) return;
   if (USE_BACKEND) {
     try {
       await fetchBackend("/api/v1/notifications/read-all", {

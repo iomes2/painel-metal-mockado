@@ -14,9 +14,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   X,
+  Globe,
 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/context/language-context";
 import {
   fetchNotifications,
   markNotificationAsRead,
@@ -42,6 +44,7 @@ export function AppHeader() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { t, language, setLanguage } = useTranslation();
 
   // Ref to track previous notifications for diffing
   const prevNotificationsRef = useRef<Set<string>>(new Set());
@@ -244,13 +247,25 @@ export function AppHeader() {
           <div className="hidden lg:flex items-center">
             <div className="px-4 py-1.5 rounded-full bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
               <span className="text-xs font-medium text-muted-foreground">
-                Sistema de Formulários
+                {t("system_forms")}
               </span>
             </div>
           </div>
 
           {/* Right side - Actions + User */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Language Switcher */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLanguage(language === "pt" ? "en" : "pt")}
+              className="h-9 sm:h-10 px-2 sm:px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all gap-1.5 font-semibold text-xs"
+              aria-label="Alterar idioma / Change language"
+            >
+              <Globe className="h-4 w-4" />
+              <span>{language === "pt" ? "PT" : "EN"}</span>
+            </Button>
+
             {/* Notifications Popover */}
             <Popover open={isOpen} onOpenChange={setIsOpen}>
               <PopoverTrigger asChild>
@@ -270,7 +285,7 @@ export function AppHeader() {
               <PopoverContent className="w-80 sm:w-96 p-0" align="end">
                 <div className="flex items-center justify-between p-4 border-b">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-sm">Notificações</h4>
+                    <h4 className="font-semibold text-sm">{t("notifications_title")}</h4>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -289,7 +304,7 @@ export function AppHeader() {
                       className="text-xs h-auto py-1 px-2"
                       onClick={handleMarkAllAsRead}
                     >
-                      Ler todas
+                      {t("notifications_read_all")}
                     </Button>
                   )}
                 </div>
@@ -297,7 +312,7 @@ export function AppHeader() {
                   {notifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full p-4 text-center text-muted-foreground space-y-2">
                       <Bell className="h-8 w-8 opacity-20" />
-                      <p className="text-sm">Nenhuma notificação</p>
+                      <p className="text-sm">{t("notifications_empty")}</p>
                     </div>
                   ) : (
                     <div className="divide-y">
@@ -325,7 +340,9 @@ export function AppHeader() {
                                       : "font-normal"
                                   }`}
                                 >
-                                  {notification.title}
+                                  {notification.title === "Novo relatório enviado"
+                                    ? t("notification_new_report_title")
+                                    : notification.title}
                                 </p>
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                   {formatDistanceToNow(
@@ -335,7 +352,9 @@ export function AppHeader() {
                                 </span>
                               </div>
                               <p className="text-xs text-muted-foreground line-clamp-2">
-                                {notification.message}
+                                {notification.message.includes("enviou o Diário de Obra")
+                                  ? t("notification_new_report_msg")
+                                  : notification.message}
                               </p>
                               {notification.link && (
                                 <Link
@@ -343,7 +362,7 @@ export function AppHeader() {
                                   className="inline-block mt-2 text-xs text-primary hover:underline font-medium"
                                   onClick={() => setIsOpen(false)}
                                 >
-                                  Ver detalhes
+                                  {t("notifications_details")}
                                 </Link>
                               )}
                             </div>
@@ -356,7 +375,7 @@ export function AppHeader() {
                                   e.stopPropagation();
                                   handleMarkAsRead(notification.id);
                                 }}
-                                title="Marcar como lida"
+                                title={t("notifications_mark_read")}
                               >
                                 <Check className="h-3 w-3" />
                               </Button>

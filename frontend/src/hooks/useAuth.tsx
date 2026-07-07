@@ -5,6 +5,7 @@ import { User } from "firebase/auth";
 import { AuthContext } from "@/components/auth/AuthInitializer";
 
 import { UserProfile } from "@/lib/api-client";
+import { DEMO_MODE, MOCK_USER_PROFILE } from "@/lib/mock-data";
 
 export function useAuth() {
   // Use global context to avoid re-initializing auth state and "flicker"
@@ -19,10 +20,14 @@ export function useAuth() {
       if (contextUser) {
         setProfileLoading(true);
         try {
-          const { fetchCurrentUser } = await import("@/lib/api-client");
-          const userProfile = await fetchCurrentUser();
-          console.log("[useAuth] Fetched Profile:", userProfile);
-          setProfile(userProfile);
+          if (DEMO_MODE) {
+            setProfile(MOCK_USER_PROFILE);
+          } else {
+            const { fetchCurrentUser } = await import("@/lib/api-client");
+            const userProfile = await fetchCurrentUser();
+            console.log("[useAuth] Fetched Profile:", userProfile);
+            setProfile(userProfile);
+          }
         } catch (error) {
           console.error("Error fetching user profile:", error);
           setProfile(null);

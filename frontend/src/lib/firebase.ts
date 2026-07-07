@@ -13,6 +13,9 @@ import {
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
+// Demo mode check
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 // Acessando as variáveis de ambiente do Next.js
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -39,7 +42,10 @@ let authInstance: Auth | null = null;
 let storageInstance: FirebaseStorage | null = null;
 let dbInstance: Firestore | null = null;
 
-if (missingEnvVars.length > 0) {
+if (DEMO_MODE) {
+  // Em modo demo, não inicializamos o Firebase
+  console.log("[firebase] Demo mode: Firebase initialization skipped.");
+} else if (missingEnvVars.length > 0) {
   const missingKeys = missingEnvVars
     .map((key) => `NEXT_PUBLIC_${key.toUpperCase().replace(/([A-Z])/g, "_$1")}`)
     .join("\n");

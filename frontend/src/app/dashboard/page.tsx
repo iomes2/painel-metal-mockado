@@ -13,10 +13,12 @@ import { useRouter } from "next/navigation";
 import { formDefinitions } from "@/config/forms";
 import { ArrowRight, ClipboardList, Sparkles } from "lucide-react";
 import { getFormIcon } from "@/components/icons/icon-resolver";
+import { useTranslation } from "@/context/language-context";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { t, language } = useTranslation();
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [selectedFormDefinition, setSelectedFormDefinition] = useState<
     (typeof formDefinitions)[0] | null
@@ -64,14 +66,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-1">
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
             <span className="text-xs sm:text-sm font-medium opacity-80">
-              Painel de Formulários
+              {t("system_forms")}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1">
-            Olá, {userName}!
+            {language === "pt" ? `Olá, ${userName}!` : `Hello, ${userName}!`}
           </h1>
           <p className="text-sm sm:text-base opacity-90">
-            Selecione um formulário abaixo para começar.
+            {t("dash_subtitle")}
           </p>
         </div>
       </div>
@@ -83,11 +85,11 @@ export default function DashboardPage() {
       >
         <h2 className="section-title mb-3">
           <ClipboardList className="section-title-icon" />
-          <span>Selecionar Formulário</span>
+          <span>{t("dash_form_label")}</span>
         </h2>
 
         <p className="text-sm text-muted-foreground mb-3">
-          Escolha o tipo de relatório que deseja preencher.
+          {t("dash_subtitle")}.
         </p>
 
         {/* Select with large touch target */}
@@ -97,11 +99,29 @@ export default function DashboardPage() {
             value={selectedFormId || undefined}
           >
             <SelectTrigger className="w-full h-12 sm:h-14 text-base touch-target-lg rounded-xl border-2 border-border hover:border-primary/50 focus:border-primary transition-colors px-4">
-              <SelectValue placeholder="Toque para escolher um formulário..." />
+              <SelectValue placeholder={t("dash_form_placeholder")} />
             </SelectTrigger>
             <SelectContent className="max-h-[50vh]">
               {formDefinitions.map((form) => {
                 const CurrentFormIcon = getFormIcon(form.iconName);
+                // Translate form names if in English (appropriate TCC terms)
+                let translatedName = form.name;
+                let translatedDesc = form.description;
+                if (language === "en") {
+                  if (form.id === "relatorio-diario-obra" || form.id === "cronograma-diario-obra") {
+                    translatedName = "Daily Work Progress Log";
+                    translatedDesc = "Daily progress tracker of work activities on site.";
+                  } else if (form.id === "relatorio-inspecao-site") {
+                    translatedName = "Site Inspection Report";
+                    translatedDesc = "Safety and quality inspection checklists.";
+                  } else if (form.id === "registro-nao-conformidade") {
+                    translatedName = "Non-Conformance Report (NCR)";
+                    translatedDesc = "Document structural or procedural non-conformity.";
+                  } else if (form.id === "permissao-trabalho-altura") {
+                    translatedName = "Work at Height Permit";
+                    translatedDesc = "Safety compliance validation for heights.";
+                  }
+                }
                 return (
                   <SelectItem
                     key={form.id}
@@ -110,7 +130,7 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center gap-3">
                       <CurrentFormIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                      <span className="text-base">{form.name}</span>
+                      <span className="text-base">{translatedName}</span>
                     </div>
                   </SelectItem>
                 );
@@ -128,10 +148,18 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-0 flex-1 overflow-hidden">
                 <h3 className="text-sm sm:text-base font-semibold text-foreground">
-                  {selectedFormDefinition.name}
+                  {language === "en" && (selectedFormId === "relatorio-diario-obra" || selectedFormId === "cronograma-diario-obra") ? "Daily Work Progress Log" : 
+                   language === "en" && selectedFormId === "relatorio-inspecao-site" ? "Site Inspection Report" :
+                   language === "en" && selectedFormId === "registro-nao-conformidade" ? "Non-Conformance Report (NCR)" :
+                   language === "en" && selectedFormId === "permissao-trabalho-altura" ? "Work at Height Permit" :
+                   selectedFormDefinition.name}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {selectedFormDefinition.description}
+                  {language === "en" && (selectedFormId === "relatorio-diario-obra" || selectedFormId === "cronograma-diario-obra") ? "Daily progress tracker of work activities on site." :
+                   language === "en" && selectedFormId === "relatorio-inspecao-site" ? "Safety and quality inspection checklists." :
+                   language === "en" && selectedFormId === "registro-nao-conformidade" ? "Document structural or procedural non-conformity." :
+                   language === "en" && selectedFormId === "permissao-trabalho-altura" ? "Safety compliance validation for heights." :
+                   selectedFormDefinition.description}
                 </p>
               </div>
             </div>
@@ -145,7 +173,7 @@ export default function DashboardPage() {
           size="lg"
           className="w-full h-12 sm:h-14 text-base rounded-xl touch-target-lg bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-300"
         >
-          <span>Abrir Formulário</span>
+          <span>{t("dash_btn_open")}</span>
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </div>

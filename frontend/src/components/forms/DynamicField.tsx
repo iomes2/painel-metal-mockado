@@ -27,7 +27,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { ptBR, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type {
   FormField as FormFieldType,
@@ -35,6 +35,7 @@ import type {
 } from "@/config/forms";
 import type { Control } from "react-hook-form";
 import { useSearchParams } from "next/navigation";
+import { useTranslation } from "@/context/language-context";
 
 interface DynamicFieldProps {
   field: FormFieldType;
@@ -48,6 +49,7 @@ export function DynamicField({
   isSubmitting,
 }: DynamicFieldProps) {
   const searchParams = useSearchParams();
+  const { language } = useTranslation();
 
   return (
     <FormField
@@ -127,7 +129,7 @@ export function DynamicField({
                 >
                   <SelectTrigger>
                     <SelectValue
-                      placeholder={field.placeholder || "Selecione..."}
+                      placeholder={field.placeholder || (language === "pt" ? "Selecione..." : "Select...")}
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -177,6 +179,9 @@ function DatePickerField({
   controllerField: any;
   isSubmitting: boolean;
 }) {
+  const { language } = useTranslation();
+  const currentLocale = language === "en" ? enUS : ptBR;
+
   const normalizeDate = (val: any): Date | undefined => {
     if (!val) return undefined;
     try {
@@ -217,9 +222,9 @@ function DatePickerField({
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {dateVal ? (
-            format(dateVal, "PPP", { locale: ptBR })
+            format(dateVal, "PPP", { locale: currentLocale })
           ) : (
-            <span>{field.placeholder || "Escolha uma data"}</span>
+            <span>{field.placeholder || (language === "pt" ? "Escolha uma data" : "Pick a date")}</span>
           )}
         </Button>
       </PopoverTrigger>
@@ -229,7 +234,7 @@ function DatePickerField({
           selected={dateVal}
           onSelect={(date) => controllerField.onChange(date)}
           initialFocus
-          locale={ptBR}
+          locale={currentLocale}
         />
       </PopoverContent>
     </Popover>

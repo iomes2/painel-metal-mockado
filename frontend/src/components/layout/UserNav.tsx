@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DEMO_MODE } from "@/lib/mock-data";
 
 // Generate consistent color based on string
 function stringToColor(str: string): string {
@@ -47,7 +48,13 @@ export function UserNav() {
         localStorage.removeItem("firebase_token_expiry");
       }
 
-      await signOut(auth);
+      if (DEMO_MODE) {
+        localStorage.removeItem("demo_logged_in");
+        window.dispatchEvent(new Event("demo-auth-change"));
+      } else {
+        await signOut(auth);
+      }
+
       toast({
         title: "Saída Efetuada",
         description: "Você foi desconectado com sucesso.",
