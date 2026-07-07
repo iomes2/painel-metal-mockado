@@ -244,6 +244,25 @@ export const MOCK_RELATORIOS: Record<string, ReportData[]> = {
       submittedBy: "mg02",
       gerenteId: "mg02",
     },
+    {
+      id: "report-005-pte",
+      formName: "DOC-011: Permissão de Trabalho Especial (PTE)",
+      formType: "doc-011-pte",
+      submittedAt: createTimestamp("2025-06-12T09:00:00Z") as any,
+      formData: {
+        dataEmissao: createTimestamp("2025-06-12T00:00:00Z"),
+        ordemServico: "OS-2024-002",
+        localTrabalho: "Edifício Comercial - Cobertura",
+        descricaoAtividade: "Instalação de estrutura e trabalho em altura",
+        riscosIdentificados: ["Queda de altura", "Queda de materiais"],
+        epiObrigatorio: ["Cinto de segurança tipo paraquedista", "Capacete com jugular", "Luvas de vaqueta"],
+        autorizadoPor: "Maria Oliveira",
+        status: "Aprovado",
+      },
+      photoUrls: [],
+      submittedBy: "mg02",
+      gerenteId: "mg02",
+    },
   ],
   "OS-2024-003": [
     {
