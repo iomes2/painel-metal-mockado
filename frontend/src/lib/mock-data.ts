@@ -263,6 +263,25 @@ export const MOCK_RELATORIOS: Record<string, ReportData[]> = {
       submittedBy: "mg02",
       gerenteId: "mg02",
     },
+    {
+      id: "report-006-rnc",
+      formName: "Relatório de Não Conformidade (RNC)",
+      formType: "rnc-report",
+      submittedAt: createTimestamp("2025-06-12T10:00:00Z") as any,
+      formData: {
+        dataEmissao: createTimestamp("2025-06-12T00:00:00Z"),
+        ordemServico: "OS-2024-002",
+        descricaoNaoConformidade: "Peças metálicas (perfis W) entregues com arranhões profundos na pintura e sem a documentação de rastreabilidade do lote.",
+        acaoImediata: "Isolamento do lote no canteiro e notificação da transportadora.",
+        disposicaoProposta: "Devolver as peças avariadas ao fornecedor ou solicitar retoque no local sob aprovação da qualidade.",
+        responsavelAcao: "Maria Oliveira",
+        prazoConclusao: createTimestamp("2025-06-15T00:00:00Z"),
+        statusRNC: "aberta",
+      },
+      photoUrls: [],
+      submittedBy: "mg02",
+      gerenteId: "mg02",
+    },
   ],
   "OS-2024-003": [
     {
